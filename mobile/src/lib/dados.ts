@@ -6,6 +6,7 @@ import { uuidv4 } from './uuid';
 import type {
   Custo,
   EntradaDiario,
+  FotoDiario,
   Material,
   MovimentoStock,
   Obra,
@@ -460,6 +461,34 @@ export async function materiaisLista(): Promise<Material[]> {
     },
     async () =>
       (await lojaOuAbrir()).ler('materiais') as Promise<Material[]>,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Fotos do diário                                                    */
+/* ------------------------------------------------------------------ */
+
+export async function fotosDaEntrada(
+  entradaId: string,
+): Promise<FotoDiario[]> {
+  return tentarOuLocal(
+    async () => {
+      const res = await api.get<{ fotos?: FotoDiario[] }>(
+        `/api/v1/diario/${entradaId}`,
+      );
+      const arr = res.fotos ?? [];
+      await cachear('diario_fotos', arr);
+      return arr;
+    },
+    async () =>
+      (await lojaOuAbrir())
+        .ler('diario_fotos')
+        .then(
+          (todas) =>
+            todas.filter(
+              (f) => String(f.diarioId ?? '') === entradaId && !f.deletedAt,
+            ) as FotoDiario[],
+        ),
   );
 }
 

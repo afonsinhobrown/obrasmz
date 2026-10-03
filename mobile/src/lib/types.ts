@@ -66,6 +66,24 @@ export type EntradaDiario = {
   semEfeito: boolean;
   registadoPor: string;
   registadoPorNome?: string;
+  /** Numero de fotos anexadas (listagem). */
+  nFotos?: number;
+  clientId: string | null;
+  criadoEm: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+/** Foto anexada a uma entrada do diário. */
+export type FotoDiario = {
+  id: string;
+  tenantId: string;
+  diarioId: string;
+  url: string;
+  legenda: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  tiradaEm: string;
   clientId: string | null;
   criadoEm: string;
   updatedAt: string;

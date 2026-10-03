@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,12 +15,16 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { API_URL } from '../lib/config';
 import {
   criarEntradaDiario,
   entradasDiario,
+  fotosDaEntrada,
   listarObras,
 } from '../lib/dados';
-import type { EntradaDiario, Obra } from '../lib/types';
+import { anexarFoto, enviarFoto, tirarFoto } from '../lib/fotos';
+import { usarLigacao } from '../lib/sync';
+import type { EntradaDiario, FotoDiario, Obra } from '../lib/types';
 
 function hojeISO(): string {
   const d = new Date();
@@ -35,6 +40,9 @@ export default function DiarioScreen() {
   const [entradas, setEntradas] = useState<EntradaDiario[]>([]);
   const [aCarregar, setACarregar] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [fotos, setFotos] = useState<Map<string, FotoDiario[]>>(new Map());
+  const [aEnviarFoto, setAEnviarFoto] = useState<string | null>(null);
+  const online = usarLigacao();
 
   // Modal de nova entrada
   const [aMostrarForm, setAMostrarForm] = useState(false);
@@ -60,16 +68,35 @@ export default function DiarioScreen() {
     carregar();
   }, [carregar]);
 
+  const carregarFotos = useCallback(async (lista: EntradaDiario[]) => {
+    const mapa = new Map<string, FotoDiario[]>();
+    await Promise.all(
+      lista
+        .filter((e) => Number(e.nFotos ?? 0) > 0)
+        .map(async (e) => {
+          try {
+            const fs = await fotosDaEntrada(e.id);
+            if (fs.length > 0) mapa.set(e.id, fs);
+          } catch {
+            // ignora entradas cujas fotos nao carregam
+          }
+        }),
+    );
+    setFotos(mapa);
+  }, []);
+
   const carregarEntradas = useCallback(
     async (idObra: string) => {
       try {
         const res = await entradasDiario(idObra, data, data);
         setEntradas(res);
+        await carregarFotos(res);
       } catch {
         setEntradas([]);
+        setFotos(new Map());
       }
     },
-    [data],
+    [data, carregarFotos],
   );
 
   useEffect(() => {
@@ -121,6 +148,33 @@ export default function DiarioScreen() {
     }
   };
 
+  // Foto com localização: câmara + GPS, enviada ao
+  // servidor e anexada à entrada.
+  const adicionarFoto = async (entradaId: string) => {
+    if (!online) {
+      Alert.alert(
+        'Sem ligação',
+        'As fotos precisam de rede para serem enviadas. Envie quando houver cobertura.',
+      );
+      return;
+    }
+    setAEnviarFoto(entradaId);
+    try {
+      const foto = await tirarFoto();
+      if (!foto) return;
+      const url = await enviarFoto(foto);
+      await anexarFoto(entradaId, url, foto.latitude, foto.longitude);
+      await carregarEntradas(obraId!);
+    } catch (e) {
+      Alert.alert(
+        'Falha',
+        e instanceof Error ? e.message : 'Não foi possível anexar a foto.',
+      );
+    } finally {
+      setAEnviarFoto(null);
+    }
+  };
+
   if (aCarregar) {
     return (
       <View style={estilos.centro}>
@@ -165,22 +219,49 @@ export default function DiarioScreen() {
         ListEmptyComponent={
           <Text style={estilos.vazio}>Sem registos hoje.</Text>
         }
-        renderItem={({ item }) => (
-          <View style={estilos.cartao}>
-            <Text style={estilos.trabalhos}>{item.trabalhos}</Text>
-            {item.ocorrencias ? (
-              <Text style={estilos.ocorrencias}>{item.ocorrencias}</Text>
-            ) : null}
-            <View style={estilos.rodape}>
-              {item.clima ? <Text style={estilos.clima}>{item.clima}</Text> : null}
-              {item.progressoPct !== null && item.progressoPct !== undefined ? (
-                <Text style={estilos.progresso}>
-                  {Number(item.progressoPct).toFixed(0)}%
-                </Text>
+        renderItem={({ item }) => {
+          const fotosEsta = fotos.get(item.id) ?? [];
+          return (
+            <View style={estilos.cartao}>
+              <Text style={estilos.trabalhos}>{item.trabalhos}</Text>
+              {item.ocorrencias ? (
+                <Text style={estilos.ocorrencias}>{item.ocorrencias}</Text>
               ) : null}
+              {fotosEsta.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={estilos.fotos}
+                >
+                  {fotosEsta.map((f) => (
+                    <Image
+                      key={f.id}
+                      source={{ uri: `${API_URL}${f.url}` }}
+                      style={estilos.foto}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
+              <View style={estilos.rodape}>
+                {item.clima ? <Text style={estilos.clima}>{item.clima}</Text> : null}
+                {item.progressoPct !== null && item.progressoPct !== undefined ? (
+                  <Text style={estilos.progresso}>
+                    {Number(item.progressoPct).toFixed(0)}%
+                  </Text>
+                ) : null}
+                <TouchableOpacity
+                  onPress={() => adicionarFoto(item.id)}
+                  disabled={aEnviarFoto !== null}
+                  style={estilos.botaoFoto}
+                >
+                  <Text style={estilos.botaoFotoTexto}>
+                    {aEnviarFoto === item.id ? 'A enviar…' : '📷 Foto'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
       />
 
       <TouchableOpacity style={estilos.fab} onPress={abrirForm}>
@@ -290,6 +371,15 @@ const estilos = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
   },
+  fotos: { marginTop: 10 },
+  foto: { width: 120, height: 90, borderRadius: 8, marginRight: 8 },
+  botaoFoto: {
+    backgroundColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  botaoFotoTexto: { color: '#334155', fontSize: 12, fontWeight: '600' },
   trabalhos: { color: '#0f172a', fontSize: 15 },
   ocorrencias: { color: '#b45309', fontSize: 13, marginTop: 8 },
   rodape: {

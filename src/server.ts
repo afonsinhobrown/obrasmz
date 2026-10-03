@@ -16,6 +16,7 @@ import { rotasCustos } from './routes/custos.js';
 import { rotasDiario } from './routes/diario.js';
 import { rotasEquipa } from './routes/equipa.js';
 import { rotasFaturas } from './routes/faturas.js';
+import { rotasFicheiros } from './routes/ficheiros.js';
 import { rotasMateriais } from './routes/materiais.js';
 import { rotasObras } from './routes/obras.js';
 import { rotasOrcamento } from './routes/orcamento.js';
@@ -140,6 +141,7 @@ export async function criarServidor(): Promise<FastifyInstance> {
       await api.register(rotasStock, { prefix: '/stock' });
       await api.register(rotasRequisicoes, { prefix: '/requisicoes' });
       await api.register(rotasDiario, { prefix: '/diario' });
+      await api.register(rotasFicheiros, { prefix: '/ficheiros' });
       await api.register(rotasEquipa, { prefix: '/equipa' });
       await api.register(rotasSubempreitada, { prefix: '/subempreitada' });
       await api.register(rotasPagamentos, { prefix: '/pagamentos' });

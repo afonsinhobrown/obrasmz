@@ -135,3 +135,52 @@ describe('faturacao', () => {
     expect(Number(n2.slice(-4))).toBe(Number(esperado.slice(-4)) + 1);
   });
 });
+
+describe('ficheiros', () => {
+  const auth = (token: string) => ({ authorization: `Bearer ${token}` });
+
+  // PNG 1x1 transparent (70 bytes).
+  const PNG_1X1 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+  it('upload em base64 devolve url servida em /uploads', async () => {
+    const token = await tokenAdmin();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ficheiros',
+      headers: auth(token),
+      payload: { tipo: 'image/png', dados: PNG_1X1, prefixo: 'diario' },
+    });
+    expect(res.statusCode).toBe(200);
+    const corpo = res.json();
+    expect(corpo.url).toMatch(
+      /^\/uploads\/[^/]+\/diario\/\d{4}\/\d{2}\/.+\.png$/,
+    );
+    expect(Number(corpo.tamanho)).toBeGreaterThan(0);
+    expect(corpo.contentType).toBe('image/png');
+
+    // A url devolve o ficheiro (servico de estaticos).
+    const f = await app.inject({ method: 'GET', url: corpo.url });
+    expect(f.statusCode).toBe(200);
+  });
+
+  it('tipo nao aceite devolve 400', async () => {
+    const token = await tokenAdmin();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ficheiros',
+      headers: auth(token),
+      payload: { tipo: 'image/svg+xml', dados: PNG_1X1 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('sem token devolve 401', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ficheiros',
+      payload: { tipo: 'image/png', dados: PNG_1X1 },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});

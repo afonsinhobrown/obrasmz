@@ -22,7 +22,20 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir ao ObraMZ escolher fotos para anexar ao diário de obra.",
+          "cameraPermission": "Permitir ao ObraMZ usar a câmara para fotografar o diário de obra."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permitir ao ObraMZ usar a localização para georeferenciar as fotos do diário."
+        }
+      ]
     ]
   }
 }

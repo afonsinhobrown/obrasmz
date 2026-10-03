@@ -67,4 +67,11 @@ export class ErroSync extends ErroApp {
   }
 }
 
+/** Falha no gateway de pagamentos (PaySuite): upstream, nao e culpa do pedido. */
+export class ErroGateway extends ErroApp {
+  constructor(mensagem: string, detalhes?: unknown) {
+    super(502, 'GATEWAY', mensagem, detalhes);
+  }
+}
+
 export type { Ctx };

@@ -2,16 +2,27 @@
 
 SaaS multi-tenant de gestão de obras para Moçambique. Offline-first, PostgreSQL, API REST.
 
-**Estado:** Backend (Fases 0–2) implementado: schema Drizzle + migrations, serviços de domínio, sync offline, servidor Fastify, rotas, seed e testes de integração (`npm test` 4 green).
+**Estado:** Backend (Fases 0–2) implementado: schema Drizzle + migrations, serviços de domínio, sync offline, servidor Fastify, rotas, seed e testes de integração (`npm test` 4 green). Integração PaySuite (pagar/receber via M-Pesa/e-Mola/cartão) implementada e desligada por defeito.
 
-**Produção:** deploy ativo na Render (Docker) em `https://obramz-api.onrender.com`, ligado a Neon Postgres. Migrations correm no arranque (`src/index.ts`). Seed de demo já aplicado na Neon.
+**Produção:** deploy ativo na Render (Docker) em `https://obramz-api.onrender.com`, ligado a Neon Postgres. Migrations correm no arranque (`src/index.ts`). Seed de demo já aplicado na Neon. Migration `0002` (tabela `transacoes_externas`) aplicada à Neon.
 
 - Comando de deploy: `render services create --name obramz-api --type web_service --repo https://github.com/afonsinhobrown/obrasmz --runtime docker --branch main --plan free --health-check-path /health --env-var ...`
-- Env vars de produção: `NODE_ENV`, `PORT=3333`, `HOST=0.0.0.0`, `DATABASE_URL` (Neon), `JWT_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`, `BCRYPT_ROUNDS`, `MOEDA_BASE`, `BUDGET_STRICT`, `STOCK_PERMITE_NEGATIVO`, `HORAS_POR_DIA`, `UPLOAD_DIR=/tmp/uploads`, `UPLOAD_MAX_BYTES`, `UPLOAD_BASE_URL`, `SYNC_PAGE_MAX`
+- Env vars de produção: `NODE_ENV`, `PORT=3333`, `HOST=0.0.0.0`, `DATABASE_URL` (Neon), `JWT_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`, `BCRYPT_ROUNDS`, `MOEDA_BASE`, `BUDGET_STRICT`, `STOCK_PERMITE_NEGATIVO`, `HORAS_POR_DIA`, `UPLOAD_DIR=/tmp/uploads`, `UPLOAD_MAX_BYTES`, `UPLOAD_BASE_URL`, `SYNC_PAGE_MAX`, `PAYSUITE_API_KEY`, `PAYSUITE_WEBHOOK_SECRET`, `PAYSUITE_BASE_URL`
 - Blueprint de referência: `render.yaml` (sem segredos; `DATABASE_URL` e `JWT_SECRET` são placeholders/gerados)
 - Credenciais de demo: `admin@obramz.demo`/`Admin1234` (papel admin), `gestor@obramz.demo`/`Gestor1234` (papel gestor)
 
-App móvel e faturação fiscal ficam para fases seguintes.
+## PaySuite (pagamentos) — implementado, off por defeito
+
+Gateway moçambicano (`paysuite.tech`): M-Pesa, e-Mola, Mkesh, cartões, bancos. **Sem sandbox** — com a API key definida, todas as transações são reais. A integração só ativa com `PAYSUITE_API_KEY`; sem ela, nenhuma transação é tentada.
+
+- Base: `https://paysuite.tech/api/v1`, auth `Authorization: Bearer <API_KEY>`
+- Tabela `transacoes_externas`: regista cada pedido/payout/reembolso (`external_id` = ULID do PaySuite, `pagamento_id` = pagamento interno, `referencia` única por tenant, `eventos` = webhooks já processados)
+- Rotas (auth + `pagamentos:registar`): `POST /api/v1/paysuite/pagamentos` (cria payment request → devolve `checkout_url`), `POST /api/v1/paysuite/payouts` (paga via M-Pesa/e-Mola/banco), `GET /api/v1/paysuite` (lista), `GET/POST /api/v1/paysuite/:id[/consultar]` (estado)
+- Webhook público `POST /webhooks/paysuite`: verifica `X-Signature` (HMAC-SHA256 do corpo bruto com `PAYSUITE_WEBHOOK_SECRET`), idempotente (evento guardado em `eventos`), e marca o pagamento interno ligado como `confirmado` no sucesso
+- Referências nossas: `OMZ-<12 aleatórios>` (≤30 caracteres, respeita o limite de payout); a unicidade no gateway é a rede de segurança contra duplicados
+- Rate limit do gateway: 100 req/min; webhooks reenviados até 5 vezes (daí a idempotência)
+
+App móvel (React Native + Expo) e faturação fiscal (faturas + AT e-fatura) ficam para os próximos passos.
 
 ---
 

@@ -19,11 +19,13 @@ import { rotasMateriais } from './routes/materiais.js';
 import { rotasObras } from './routes/obras.js';
 import { rotasOrcamento } from './routes/orcamento.js';
 import { rotasPagamentos } from './routes/pagamentos.js';
+import { rotasPaySuite } from './routes/paysuite.js';
 import { rotasRelatorios } from './routes/relatorios.js';
 import { rotasRequisicoes } from './routes/requisicoes.js';
 import { rotasStock } from './routes/stock.js';
 import { rotasSubempreitada } from './routes/subempreitada.js';
 import { rotasSync } from './routes/sync.js';
+import { rotasWebhookPaySuite } from './routes/webhooks/paysuite.js';
 
 export async function criarServidor(): Promise<FastifyInstance> {
   const app = fastify({
@@ -140,11 +142,15 @@ export async function criarServidor(): Promise<FastifyInstance> {
       await api.register(rotasEquipa, { prefix: '/equipa' });
       await api.register(rotasSubempreitada, { prefix: '/subempreitada' });
       await api.register(rotasPagamentos, { prefix: '/pagamentos' });
+      await api.register(rotasPaySuite, { prefix: '/paysuite' });
       await api.register(rotasRelatorios, { prefix: '/relatorios' });
       await api.register(rotasSync, { prefix: '/sync' });
     },
     { prefix: '/api/v1' },
   );
+
+  // 6. Webhooks externos (publicos, sem JWT — autenticam por assinatura)
+  await app.register(rotasWebhookPaySuite);
 
   return app;
 }

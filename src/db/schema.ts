@@ -108,6 +108,23 @@ export const estadosFolhaEnum = pgEnum('estados_folha', [
   'paga',
   'anulada',
 ]);
+export const tiposTransacaoExternaEnum = pgEnum('tipos_transacao_externa', [
+  'payment_request',
+  'payout',
+  'refund',
+]);
+export const metodosPaySuiteEnum = pgEnum('metodos_paysuite', [
+  'mpesa',
+  'emola',
+  'mkesh',
+  'credit_card',
+  'bank',
+  'bank_transfer',
+]);
+export const estadosTransacaoExternaEnum = pgEnum(
+  'estados_transacao_externa',
+  ['pending', 'processing', 'paid', 'completed', 'failed', 'cancelled'],
+);
 
 /* ==========================================================================
    BASE / MULTI-TENANT
@@ -844,6 +861,60 @@ export const pagamentos = pgTable(
     index('idx_pagamentos_folha').on(t.folhaId),
     index('idx_sync_pagamentos').on(t.tenantId, t.updatedAt),
     uniqueIndex('uq_sync_pagamentos_client').on(t.tenantId, t.clientId),
+  ],
+);
+
+/* ==========================================================================
+   TRANSACOES EXTERNAS (PaySuite)
+   Registo de cada pedido de pagamento / payout / reembolso enviado ao
+   gateway. E o ponto de reconciliacao entre a obra e o extracto do
+   gateway: `external_id` e o ULID do PaySuite, `pagamento_id` e o
+   pagamento interno que esta transacao liquida.
+   ========================================================================== */
+
+export const transacoesExternas = pgTable(
+  'transacoes_externas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tipo: tiposTransacaoExternaEnum('tipo').notNull(),
+    /** Pagamento interno que esta transacao liquida (quando aplicavel). */
+    pagamentoId: uuid('pagamento_id').references(() => pagamentos.id),
+    metodo: metodosPaySuiteEnum('metodo').notNull(),
+    valor: numeric('valor', { precision: 14, scale: 2 }).notNull(),
+    moeda: char('moeda', { length: 3 }).notNull().default('MZN'),
+    /** Referencia nossa, enviada ao gateway. Unica por tenant. */
+    referencia: text('referencia').notNull(),
+    /** ULID devolvido pelo PaySuite. */
+    externalId: text('external_id'),
+    status: estadosTransacaoExternaEnum('status').notNull().default('pending'),
+    /** URL de checkout (payment requests). */
+    checkoutUrl: text('checkout_url'),
+    /** Id da transaccao no operador (ex.: MPESA123456). */
+    transactionId: text('transaction_id'),
+    pagoEm: timestamp('pago_em', { withTimezone: true }),
+    beneficiarioTelefone: text('beneficiario_telefone'),
+    beneficiarioTitular: text('beneficiario_titular'),
+    beneficiarioNib: text('beneficiario_nib'),
+    erro: text('erro'),
+    /** Eventos de webhook ja processados, para idempotencia. */
+    eventos: jsonb('eventos').notNull().default([]),
+    registadoPor: uuid('registado_por')
+      .notNull()
+      .references(() => utilizadores.id),
+    clientId: clientId(),
+    criadoEm: criadoEm(),
+    updatedAt: updatedAt(),
+    deletedAt: deletedAt(),
+  },
+  (t) => [
+    index('idx_sync_transacoes_externas').on(t.tenantId, t.updatedAt),
+    uniqueIndex('uq_sync_transacoes_externas_client').on(t.tenantId, t.clientId),
+    uniqueIndex('uq_transacoes_externas_ref').on(t.tenantId, t.referencia),
+    index('idx_transacoes_externas_pagamento').on(t.pagamentoId),
+    index('idx_transacoes_externas_external').on(t.tenantId, t.externalId),
   ],
 );
 

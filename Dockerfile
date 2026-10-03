@@ -13,7 +13,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
-RUN mkdir -p /tmp/uploads && chown -R app:app /tmp/uploads
+RUN mkdir -p /tmp/uploads && addgroup -S app && adduser -S app -G app && chown -R app:app /tmp/uploads
 USER app
 EXPOSE 3333
 CMD ["node", "dist/index.js"]

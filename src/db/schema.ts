@@ -125,6 +125,11 @@ export const estadosTransacaoExternaEnum = pgEnum(
   'estados_transacao_externa',
   ['pending', 'processing', 'paid', 'completed', 'failed', 'cancelled'],
 );
+export const estadosFaturaEnum = pgEnum('estados_fatura', [
+  'emitida',
+  'anulada',
+  'paga',
+]);
 
 /* ==========================================================================
    BASE / MULTI-TENANT
@@ -915,6 +920,96 @@ export const transacoesExternas = pgTable(
     uniqueIndex('uq_transacoes_externas_ref').on(t.tenantId, t.referencia),
     index('idx_transacoes_externas_pagamento').on(t.pagamentoId),
     index('idx_transacoes_externas_external').on(t.tenantId, t.externalId),
+  ],
+);
+
+/* ==========================================================================
+   FACTURAS (faturacao fiscal)
+   Documentos fiscais emitidos pelo tenant. Numeração sequencial
+   por tenant/ano (FAT-2026-0001) via `numeros_documento`.
+   O emitente vem do tenant (nome, NUIT); o cliente e livre.
+   ========================================================================== */
+
+export const faturas = pgTable(
+  'faturas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    /** Numero fiscal sequencial, unico por tenant (FAT-2026-0001). */
+    numero: text('numero').notNull(),
+    serie: text('serie'),
+    /** Obra a que a fatura se refere (opcional). */
+    obraId: uuid('obra_id').references(() => obras.id),
+    // Emitente (do tenant, preenchido no onboarding/empresa)
+    emitenteNome: text('emitente_nome'),
+    emitenteNuit: text('emitente_nuit'),
+    emitenteEndereco: text('emitente_endereco'),
+    emitenteTelefone: text('emitente_telefone'),
+    // Cliente
+    clienteNome: text('cliente_nome').notNull(),
+    clienteNuit: text('cliente_nuit'),
+    clienteEndereco: text('cliente_endereco'),
+    clienteTelefone: text('cliente_telefone'),
+    // Totais (NUMERIC como string, sem perda de precisao)
+    moeda: char('moeda', { length: 3 }).notNull().default('MZN'),
+    subtotal: numeric('subtotal', { precision: 14, scale: 2 }).notNull(),
+    desconto: numeric('desconto', { precision: 14, scale: 2 }).notNull().default('0'),
+    /** Taxa de IVA aplicada (ex.: 0.17 = 17%). */
+    ivaTaxa: numeric('iva_taxa', { precision: 5, scale: 4 }).notNull().default('0.17'),
+    ivaValor: numeric('iva_valor', { precision: 14, scale: 2 }).notNull(),
+    total: numeric('total', { precision: 14, scale: 2 }).notNull(),
+    estado: estadosFaturaEnum('estado').notNull().default('emitida'),
+    anuladoMotivo: text('anulado_motivo'),
+    dataEmissao: timestamp('data_emissao', { withTimezone: true }).notNull().defaultNow(),
+    dataVencimento: timestamp('data_vencimento', { withTimezone: true }),
+    notas: text('notas'),
+    registadoPor: uuid('registado_por')
+      .notNull()
+      .references(() => utilizadores.id),
+    clientId: clientId(),
+    criadoEm: criadoEm(),
+    updatedAt: updatedAt(),
+    deletedAt: deletedAt(),
+  },
+  (t) => [
+    index('idx_sync_faturas').on(t.tenantId, t.updatedAt),
+    uniqueIndex('uq_sync_faturas_client').on(t.tenantId, t.clientId),
+    uniqueIndex('uq_faturas_numero').on(t.tenantId, t.numero),
+    index('idx_faturas_obra').on(t.obraId),
+    index('idx_faturas_cliente').on(t.tenantId, t.clienteNuit),
+  ],
+);
+
+export const faturaItens = pgTable(
+  'fatura_itens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    faturaId: uuid('fatura_id')
+      .notNull()
+      .references(() => faturas.id),
+    descricao: text('descricao').notNull(),
+    quantidade: numeric('quantidade', { precision: 14, scale: 4 }).notNull().default('1'),
+    precoUnitario: numeric('preco_unitario', { precision: 14, scale: 2 }).notNull(),
+    /** Taxa de IVA desta linha (por defeito a da fatura). */
+    ivaTaxa: numeric('iva_taxa', { precision: 5, scale: 4 }).notNull().default('0.17'),
+    desconto: numeric('desconto', { precision: 14, scale: 2 }).notNull().default('0'),
+    /** Total da linha (ja com desconto, antes de IVA). */
+    valor: numeric('valor', { precision: 14, scale: 2 }).notNull(),
+    ordem: integer('ordem').notNull().default(0),
+    clientId: clientId(),
+    criadoEm: criadoEm(),
+    updatedAt: updatedAt(),
+    deletedAt: deletedAt(),
+  },
+  (t) => [
+    index('idx_sync_fatura_itens').on(t.tenantId, t.updatedAt),
+    uniqueIndex('uq_sync_fatura_itens_client').on(t.tenantId, t.clientId),
+    index('idx_fatura_itens_fatura').on(t.faturaId),
   ],
 );
 

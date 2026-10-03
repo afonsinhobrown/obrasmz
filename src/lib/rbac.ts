@@ -39,6 +39,10 @@ export const PERMISSOES = [
   'pagamentos:ler',
   'pagamentos:registar',
   'pagamentos:anular',
+  // Faturação
+  'faturas:ler',
+  'faturas:escrever',
+  'faturas:anular',
   // Relatórios
   'relatorios:ler',
   // Administração
@@ -82,6 +86,8 @@ export const PERMISSOES_POR_PAPEL: Record<string, readonly Permissao[]> = {
     'subempreitada:ler',
     'pagamentos:ler',
     'pagamentos:registar',
+    'faturas:ler',
+    'faturas:escrever',
     'relatorios:ler',
     'utilizadores:ler',
   ],
@@ -131,6 +137,9 @@ export const PERMISSOES_POR_PAPEL: Record<string, readonly Permissao[]> = {
     'pagamentos:ler',
     'pagamentos:registar',
     'pagamentos:anular',
+    'faturas:ler',
+    'faturas:escrever',
+    'faturas:anular',
     'relatorios:ler',
     'cambio:escrever',
     'utilizadores:ler',

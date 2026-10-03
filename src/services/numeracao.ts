@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { Ctx } from '../db/tx.js';
 import { numerosDocumento } from '../db/schema.js';
 
-export type TipoDocumento = 'OBR' | 'REQ' | 'CTR' | 'FOL' | 'DOC';
+export type TipoDocumento = 'OBR' | 'REQ' | 'CTR' | 'FOL' | 'FAT' | 'DOC';
 
 /**
  * Numeracao sequencial por tenant, tipo e ano: OBR-2026-0001.

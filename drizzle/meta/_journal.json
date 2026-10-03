@@ -22,6 +22,13 @@
       "when": 1791014750840,
       "tag": "0002_hot_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791022907235,
+      "tag": "0003_wise_mister_sinister",
+      "breakpoints": true
     }
   ]
 }

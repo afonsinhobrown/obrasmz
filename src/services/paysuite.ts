@@ -217,7 +217,7 @@ export async function criarPaymentRequest(
       reference: referencia,
       description: dados.descricao,
       return_url: dados.returnUrl,
-      webhook_url: dados.webhookUrl,
+      webhook_url: dados.webhookUrl ?? config.paysuite.webhookUrl,
       contact_id: dados.contactId,
     });
     const externalId = String(resposta.id ?? '');
@@ -307,7 +307,7 @@ export async function criarPayout(
         dados.metodo === 'bank'
           ? { nib: dados.nib, holder: dados.titular }
           : { phone: dados.telefone, holder: dados.titular },
-      webhook_url: dados.webhookUrl,
+      webhook_url: dados.webhookUrl ?? config.paysuite.webhookUrl,
     });
     const externalId = String(resposta.id ?? '');
     const status = normalizarStatus(resposta.status);

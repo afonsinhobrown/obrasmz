@@ -56,6 +56,12 @@ const esquema = z.object({
   PAYSUITE_API_TOKEN: z.string().min(1).optional(),
   PAYSUITE_WEBHOOK_SECRET: z.string().min(1).optional(),
   PAYSUITE_BASE_URL: z.string().url().default('https://paysuite.tech/api/v1'),
+
+  // URL publica desta API (ex.: https://obramz-api.onrender.com).
+  // Usada para montar o webhook_url que diz ao PaySuite para onde
+  // enviar os callbacks. Sem ela, o webhook da conta (um so URL por
+  // conta) e usado — o que partilha a conta com outra app nao chega.
+  PUBLIC_URL: z.string().url().optional(),
 });
 
 const bruto = Object.fromEntries(
@@ -121,6 +127,12 @@ export const config = {
     baseUrl: env.PAYSUITE_BASE_URL.replace(/\/$/, ''),
     // A integração so fica activa quando ha credenciais completas.
     activo: Boolean(env.PAYSUITE_API_TOKEN),
+    // Webhook_url por omissão para cada pedido. Essencial quando a
+    // conta PaySuite e partilhada com outra app (o webhook da
+    // conta e um so URL).
+    webhookUrl: env.PUBLIC_URL
+      ? `${env.PUBLIC_URL.replace(/\/$/, '')}/webhooks/paysuite`
+      : null,
   },
 } as const;
 

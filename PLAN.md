@@ -2,7 +2,16 @@
 
 SaaS multi-tenant de gestão de obras para Moçambique. Offline-first, PostgreSQL, API REST.
 
-**Estado:** Backend (Fases 0–2) implementado: schema Drizzle + migrations, serviços de domínio, sync offline, servidor Fastify, rotas, seed e testes de integração (`npm test` 4 green). Produção pronta: `docker compose build api` + `up -d api`. App móvel e faturação fiscal ficam para fases seguintes.
+**Estado:** Backend (Fases 0–2) implementado: schema Drizzle + migrations, serviços de domínio, sync offline, servidor Fastify, rotas, seed e testes de integração (`npm test` 4 green).
+
+**Produção:** deploy ativo na Render (Docker) em `https://obramz-api.onrender.com`, ligado a Neon Postgres. Migrations correm no arranque (`src/index.ts`). Seed de demo já aplicado na Neon.
+
+- Comando de deploy: `render services create --name obramz-api --type web_service --repo https://github.com/afonsinhobrown/obrasmz --runtime docker --branch main --plan free --health-check-path /health --env-var ...`
+- Env vars de produção: `NODE_ENV`, `PORT=3333`, `HOST=0.0.0.0`, `DATABASE_URL` (Neon), `JWT_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`, `BCRYPT_ROUNDS`, `MOEDA_BASE`, `BUDGET_STRICT`, `STOCK_PERMITE_NEGATIVO`, `HORAS_POR_DIA`, `UPLOAD_DIR=/tmp/uploads`, `UPLOAD_MAX_BYTES`, `UPLOAD_BASE_URL`, `SYNC_PAGE_MAX`
+- Blueprint de referência: `render.yaml` (sem segredos; `DATABASE_URL` e `JWT_SECRET` são placeholders/gerados)
+- Credenciais de demo: `admin@obramz.demo`/`Admin1234` (papel admin), `gestor@obramz.demo`/`Gestor1234` (papel gestor)
+
+App móvel e faturação fiscal ficam para fases seguintes.
 
 ---
 

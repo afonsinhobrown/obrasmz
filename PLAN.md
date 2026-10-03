@@ -2,7 +2,7 @@
 
 SaaS multi-tenant de gestão de obras para Moçambique. Offline-first, PostgreSQL, API REST.
 
-**Estado:** Backend (Fases 0–2) implementado: schema Drizzle + migrations, serviços de domínio, sync offline, servidor Fastify, rotas, seed e testes de smoke (`npm test`). App móvel e faturação fiscal ficam para fases seguintes.
+**Estado:** Backend (Fases 0–2) implementado: schema Drizzle + migrations, serviços de domínio, sync offline, servidor Fastify, rotas, seed e testes de integração (`npm test` 4 green). Produção pronta: `docker compose build api` + `up -d api`. App móvel e faturação fiscal ficam para fases seguintes.
 
 ---
 

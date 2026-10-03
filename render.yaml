@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: obramz-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3333
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: obramz-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      - key: BCRYPT_ROUNDS
+        value: "10"
+      - key: MOEDA_BASE
+        value: MZN
+      - key: BUDGET_STRICT
+        value: "false"
+      - key: STOCK_PERMITE_NEGATIVO
+        value: "false"
+      - key: HORAS_POR_DIA
+        value: "8"
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+      - key: UPLOAD_MAX_BYTES
+        value: "10485760"
+      - key: UPLOAD_BASE_URL
+        value: /uploads
+      - key: SYNC_PAGE_MAX
+        value: "500"
+
+databases:
+  - name: obramz-db
+    plan: free
+    databaseName: obramz
+    user: obramz

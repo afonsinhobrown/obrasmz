@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: obramz-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: obramz
+      POSTGRES_PASSWORD: obramz
+      POSTGRES_DB: obramz
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - obramz-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obramz -d obramz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: obramz-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3333
+      NODE_ENV: production
+      DATABASE_URL: postgres://obramz:obramz@postgres:5432/obramz
+      JWT_SECRET: ${JWT_SECRET:-trocar-em-producao}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3333:3333"
+    volumes:
+      - obramz-uploads:/app/uploads
+
+volumes:
+  obramz-pgdata:
+  obramz-uploads:

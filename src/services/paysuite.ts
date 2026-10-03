@@ -10,7 +10,7 @@ import {
   ErroRegraNegocio,
   ErroValidacao,
 } from '../lib/erros.js';
-import { arred2 } from '../lib/money.js';
+import { arred2, paraNum } from '../lib/money.js';
 import type { Contexto } from './auth.js';
 
 /**
@@ -38,6 +38,40 @@ export const STATUS_VALIDOS = [
 ] as const;
 type StatusTransacao = (typeof STATUS_VALIDOS)[number];
 
+const STATUS_SUCESSO = new Set([
+  'paid',
+  'pago',
+  'succeeded',
+  'success',
+  'completed',
+  'confirmed',
+]);
+const STATUS_FALHA = new Set([
+  'failed',
+  'falhou',
+  'cancelled',
+  'cancelado',
+  'expired',
+  'declined',
+  'rejected',
+]);
+
+/** Classifica um status do gateway no nosso enum interno. */
+function classificarStatus(status: string): StatusTransacao | null {
+  const s = status.toLowerCase();
+  if (s === 'pending' || s === 'pendente') return 'pending';
+  if (s === 'processing' || s === 'processando') return 'processing';
+  if (STATUS_SUCESSO.has(s)) {
+    return s === 'paid' || s === 'pago' ? 'paid' : 'completed';
+  }
+  if (STATUS_FALHA.has(s)) {
+    return s === 'cancelled' || s === 'cancelado' || s === 'expired'
+      ? 'cancelled'
+      : 'failed';
+  }
+  return null;
+}
+
 /**
  * O gateway devolve strings; so aceitamos estados conhecidos.
  * Qualquer outro valor cai em `fallback` para nao corromper a
@@ -47,18 +81,15 @@ function normalizarStatus(
   valor: unknown,
   fallback: StatusTransacao = 'pending',
 ): StatusTransacao {
-  const v = String(valor ?? '');
-  return (STATUS_VALIDOS as readonly string[]).includes(v)
-    ? (v as StatusTransacao)
-    : fallback;
+  return classificarStatus(String(valor ?? '')) ?? fallback;
 }
 
 /** Levanta se a integração nao estiver configurada. */
 function assertActivo(): string {
-  const chave = config.paysuite.apiKey;
+  const chave = config.paysuite.apiToken;
   if (!chave) {
     throw new ErroRegraNegocio(
-      'Integração PaySuite nao configurada. Defina PAYSUITE_API_KEY.',
+      'Integração PaySuite nao configurada. Defina PAYSUITE_API_TOKEN.',
     );
   }
   return chave;
@@ -68,6 +99,7 @@ interface Resposta {
   status: 'success' | 'error';
   data?: Record<string, unknown>;
   message?: string;
+  error?: string;
   errors?: Record<string, unknown>;
 }
 
@@ -89,6 +121,7 @@ async function pedir(
         Accept: 'application/json',
       },
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
+      signal: AbortSignal.timeout(15000),
     });
   } catch (erro) {
     throw new ErroGateway('Impossivel contactar o gateway de pagamentos.', {
@@ -104,8 +137,18 @@ async function pedir(
     });
   }
   if (!resposta.ok || json.status === 'error') {
+    // Detalhes: a PaySuite devolve `errors` como objecto de listas.
+    const erros = json.errors;
+    const detalhe =
+      erros && typeof erros === 'object'
+        ? Object.values(erros)
+            .map((v) => (Array.isArray(v) ? v.join(', ') : String(v)))
+            .join('; ')
+        : '';
+    const mensagem =
+      json.message ?? json.error ?? 'O gateway de pagamentos recusou o pedido.';
     throw new ErroGateway(
-      json.message ?? 'O gateway de pagamentos recusou o pedido.',
+      detalhe ? `${mensagem} (${detalhe})` : mensagem,
       { statusHttp: resposta.status, erros: json.errors },
     );
   }
@@ -113,14 +156,16 @@ async function pedir(
 }
 
 /**
- * Referencia nossa, unica por tenant. Respeita o limite mais apertado do
- * gateway (payouts: 30 caracteres alfanumericos) para servir ambos os
- * fluxos. A restricao unica no gateway e a nossa rede de seguranca
+ * Referência nossa, unica por tenant. ALFANUMÉRICA — a PaySuite
+ * recusa "_" e "-" em references (verificado contra a API real).
+ * Respeita o limite mais apertado (payouts: 30) para servir
+ * ambos os fluxos. A unicidade no gateway e a rede de segurança
  * contra pagamentos duplicados.
  */
 function gerarReferencia(): string {
-  const rand = Math.random().toString(36).slice(2, 14).toUpperCase();
-  return `OMZ-${rand}`;
+  const stamp = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `OMZ${stamp}${rand}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -350,37 +395,67 @@ export async function consultar(
 /* Webhooks                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Verifica o `X-Signature` (HMAC-SHA256 do corpo bruto). */
+/**
+ * Verifica o `X-Signature` (HMAC-SHA256 do corpo bruto, em hex).
+ *
+ * O segredo da conta vem prefixado com `whsec_` e a PaySuite assina
+ * tanto com o segredo completo como sem o prefixo — validamos contra
+ * ambos. A assinatura pode tambem vir com prefixo `sha256=`.
+ */
 export function verificarAssinatura(
   corpoBruto: string,
   assinatura: string | undefined,
 ): boolean {
   const segredo = config.paysuite.webhookSecret;
   if (!segredo || !assinatura) return false;
-  const calculada = createHmac('sha256', segredo)
-    .update(corpoBruto, 'utf8')
-    .digest('hex');
-  const a = Buffer.from(calculada, 'utf8');
-  const b = Buffer.from(assinatura, 'utf8');
-  return a.length === b.length && timingSafeEqual(a, b);
+  const fornecida = assinatura.replace(/^sha256=/i, '').trim();
+  const segredos = new Set([segredo]);
+  if (segredo.startsWith('whsec_')) segredos.add(segredo.slice(6));
+  for (const s of segredos) {
+    const esperada = createHmac('sha256', s)
+      .update(corpoBruto, 'utf8')
+      .digest('hex');
+    const a = Buffer.from(fornecida, 'utf8');
+    const b = Buffer.from(esperada, 'utf8');
+    if (a.length === b.length && timingSafeEqual(a, b)) return true;
+  }
+  return false;
 }
 
 /** Estado interno resultante de um evento de webhook. */
 function estadoDoEvento(evento: string): StatusTransacao | null {
-  if (evento.endsWith('.success')) {
-    return evento.startsWith('payment.') ? 'paid' : 'completed';
+  const e = evento.toLowerCase();
+  if (
+    e.endsWith('.success') ||
+    e.endsWith('.succeeded') ||
+    e.endsWith('.paid') ||
+    e.endsWith('.completed') ||
+    e.endsWith('.confirmed')
+  ) {
+    return e.startsWith('payment.') ? 'paid' : 'completed';
   }
-  if (evento.endsWith('.failed')) return 'failed';
+  if (
+    e.endsWith('.failed') ||
+    e.endsWith('.cancelled') ||
+    e.endsWith('.canceled') ||
+    e.endsWith('.expired') ||
+    e.endsWith('.declined') ||
+    e.endsWith('.rejected')
+  ) {
+    return 'failed';
+  }
   return null;
 }
 
 /**
  * Processa um evento de webhook da PaySuite.
  *
- * Idempotente: o mesmo evento (que a PaySuite reenvia ate 5 vezes) e
+ * A PaySuite ecoa a nossa `reference` (chave unica nossa) e devolve
+ * o `id` (ULID). Procuramos por referencia e, na sua ausencia, pelo
+ * external_id. Idempotente: o mesmo evento (reenviado ate 5 vezes) e
  * registado em `eventos` e nao e aplicado duas vezes. Quando a
  * transacao termina com sucesso e esta ligada a um pagamento interno,
- * esse pagamento passa a `confirmado` — e a ponte entre o gateway e a
+ * esse pagamento passa a `confirmado` — a ponte entre o gateway e a
  * obra.
  */
 export async function processarWebhook(
@@ -388,35 +463,60 @@ export async function processarWebhook(
   evento: string,
   dados: Record<string, unknown>,
 ) {
+  const referencia = dados.reference ? String(dados.reference) : null;
   const externalId = dados.id ? String(dados.id) : null;
-  if (!externalId) return { transacaoId: null, aplicado: false };
+  if (!referencia && !externalId) {
+    return { transacaoId: null, aplicado: false };
+  }
+
+  // Estado: do evento ou, se o evento vier vazio, do `status`.
+  const statusDado = dados.status ? String(dados.status) : null;
+  let novoStatus = estadoDoEvento(evento);
+  if (!novoStatus && statusDado) {
+    novoStatus = classificarStatus(statusDado);
+  }
 
   return db.transaction(async (tx) => {
+    const cond = referencia
+      ? eq(transacoesExternas.referencia, referencia)
+      : eq(transacoesExternas.externalId, externalId!);
     const [registo] = await tx
       .select()
       .from(transacoesExternas)
-      .where(
-        and(
-          eq(transacoesExternas.externalId, externalId),
-          isNull(transacoesExternas.deletedAt),
-        ),
-      )
+      .where(and(cond, isNull(transacoesExternas.deletedAt)))
       .limit(1);
     if (!registo) return { transacaoId: null, aplicado: false };
 
-    // Idempotencia: ja processamos este evento?
+    // Anti-fraude: o valor do webhook tem de coincidir com o nosso.
+    const amount = dados.amount !== undefined ? Number(dados.amount) : null;
+    if (amount !== null && Number.isFinite(amount)) {
+      if (Math.abs(amount - paraNum(registo.valor)) > 0.01) {
+        return {
+          transacaoId: registo.id,
+          aplicado: false,
+          ignorado: 'amount mismatch',
+        };
+      }
+    }
+
+    // Idempotencia: ja processamos este evento/estado?
     const eventos = Array.isArray(registo.eventos)
       ? (registo.eventos as unknown[])
       : [];
-    if (eventos.includes(evento)) {
+    const chave = evento || `status:${statusDado ?? ''}`;
+    if (eventos.includes(chave)) {
       return { transacaoId: registo.id, aplicado: false };
     }
 
-    const novoStatus = estadoDoEvento(evento);
     if (novoStatus) {
       await tx
         .update(transacoesExternas)
-        .set({ status: novoStatus, eventos: [...eventos, evento], updatedAt: new Date() })
+        .set({
+          status: novoStatus,
+          externalId: externalId ?? registo.externalId,
+          eventos: [...eventos, chave],
+          updatedAt: new Date(),
+        })
         .where(eq(transacoesExternas.id, registo.id));
 
       // Pagamento interno ligado passa a confirmado no sucesso.

@@ -51,9 +51,9 @@ const esquema = z.object({
   SYNC_PAGE_MAX: z.coerce.number().int().positive().default(500),
 
   // PaySuite (gateway de pagamentos de Moçambique). A integração fica
-  // desligada enquanto nao houver API key: nenhuma transaccao real e
-  // tentada. Sem sandbox — com a key definida, as transaccoes sao reais.
-  PAYSUITE_API_KEY: z.string().min(1).optional(),
+  // desligada enquanto nao houver API token: nenhuma transaccao real e
+  // tentada. Sem sandbox — com o token definido, as transaccoes sao reais.
+  PAYSUITE_API_TOKEN: z.string().min(1).optional(),
   PAYSUITE_WEBHOOK_SECRET: z.string().min(1).optional(),
   PAYSUITE_BASE_URL: z.string().url().default('https://paysuite.tech/api/v1'),
 });
@@ -116,11 +116,11 @@ export const config = {
   },
 
   paysuite: {
-    apiKey: env.PAYSUITE_API_KEY ?? null,
+    apiToken: env.PAYSUITE_API_TOKEN ?? null,
     webhookSecret: env.PAYSUITE_WEBHOOK_SECRET ?? null,
     baseUrl: env.PAYSUITE_BASE_URL.replace(/\/$/, ''),
     // A integração so fica activa quando ha credenciais completas.
-    activo: Boolean(env.PAYSUITE_API_KEY),
+    activo: Boolean(env.PAYSUITE_API_TOKEN),
   },
 } as const;
 

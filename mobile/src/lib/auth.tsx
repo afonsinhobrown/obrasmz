@@ -13,6 +13,7 @@ import {
   guardarSessao,
   type Sessao,
 } from './authStore';
+import { guardarPerfilLocal, lerPerfilLocal } from './dados';
 import type { Perfil } from './types';
 
 /** Resposta exacta de POST /auth/login. */
@@ -39,10 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
 
   // Arrancar: recupera a sessão guardada (persistência offline).
+  // O perfil guardado importa: o seu `sub` e' o autor das
+  // escritas feitas sem rede.
   useEffect(() => {
     (async () => {
       const s = await getSessao();
       setSessao(s);
+      const p = await lerPerfilLocal();
+      if (p) setPerfil(p);
       setAIniciar(false);
     })();
   }, []);
@@ -57,10 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api
       .get<Perfil>('/api/v1/auth/eu')
       .then((p) => {
-        if (vivo) setPerfil(p);
+        if (!vivo) return;
+        setPerfil(p);
+        void guardarPerfilLocal(p);
       })
       .catch(() => {
-        if (vivo) setPerfil(null);
+        // Sem rede: mantém-se o perfil guardado.
       });
     return () => {
       vivo = false;
@@ -90,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     await apagarSessao();
+    await guardarPerfilLocal(null);
     setSessao(null);
     setPerfil(null);
   }, []);

@@ -6,7 +6,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import { itensOrcamento } from '../lib/dados';
 import SeletorObra from '../components/SeletorObra';
 import type { OrcamentoItem } from '../lib/types';
 
@@ -20,8 +20,8 @@ export default function OrcamentoScreen() {
   const carregar = useCallback(async (id: string) => {
     try {
       setErro(null);
-      const res = await api.get(`/api/v1/orcamento/obras/${id}/itens`);
-      setItens(comoArray<OrcamentoItem>(res));
+      const res = await itensOrcamento(id);
+      setItens(res);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar.');
     }

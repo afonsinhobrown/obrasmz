@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../lib/auth';
+import { iniciarSincronizacao } from '../lib/sync';
 import LoginScreen from '../screens/LoginScreen';
 import ObrasScreen from '../screens/ObrasScreen';
 import PontoScreen from '../screens/PontoScreen';
@@ -52,6 +53,14 @@ function Abas() {
 
 export default function RootNavigator() {
   const { aIniciar, sessao } = useAuth();
+
+  // Com sessão: abre a base local e sincroniza — ao arrancar,
+  // a cada minuto e sempre que a rede volta.
+  useEffect(() => {
+    if (!sessao) return;
+    const parar = iniciarSincronizacao();
+    return parar;
+  }, [sessao]);
 
   if (aIniciar) {
     return (

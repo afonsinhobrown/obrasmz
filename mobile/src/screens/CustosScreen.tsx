@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import { custosObra, lancarCusto } from '../lib/dados';
 import SeletorObra from '../components/SeletorObra';
 import type { Custo } from '../lib/types';
 
@@ -57,7 +57,7 @@ export default function CustosScreen() {
   const [erro, setErro] = useState<string | null>(null);
 
   const [aMostrarForm, setAMostrarForm] = useState(false);
-  const [tipo, setTipo] = useState<string>('material');
+  const [tipo, setTipo] = useState<Custo['tipo']>('material');
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
   const [moeda, setMoeda] = useState('MZN');
@@ -66,8 +66,8 @@ export default function CustosScreen() {
   const carregar = useCallback(async (id: string) => {
     try {
       setErro(null);
-      const res = await api.get(`/api/v1/custos?obraId=${id}`);
-      setCustos(comoArray<Custo>(res));
+      const res = await custosObra(id);
+      setCustos(res);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar.');
     }
@@ -97,7 +97,7 @@ export default function CustosScreen() {
     }
     setASubmeter(true);
     try {
-      await api.post('/api/v1/custos', {
+      await lancarCusto({
         obraId,
         tipo,
         descricao: descricao.trim(),

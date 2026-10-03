@@ -14,7 +14,11 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import {
+  criarEntradaDiario,
+  entradasDiario,
+  listarObras,
+} from '../lib/dados';
 import type { EntradaDiario, Obra } from '../lib/types';
 
 function hojeISO(): string {
@@ -42,8 +46,7 @@ export default function DiarioScreen() {
 
   const carregar = useCallback(async () => {
     try {
-      const o = await api.get('/api/v1/obras');
-      const obrasArr = comoArray<Obra>(o);
+      const obrasArr = await listarObras();
       setObras(obrasArr);
       setObraId((atual) => atual ?? obrasArr[0]?.id ?? null);
     } catch (e) {
@@ -60,10 +63,8 @@ export default function DiarioScreen() {
   const carregarEntradas = useCallback(
     async (idObra: string) => {
       try {
-        const res = await api.get(
-          `/api/v1/diario?obraId=${idObra}&de=${data}&ate=${data}`,
-        );
-        setEntradas(comoArray<EntradaDiario>(res));
+        const res = await entradasDiario(idObra, data, data);
+        setEntradas(res);
       } catch {
         setEntradas([]);
       }
@@ -100,7 +101,7 @@ export default function DiarioScreen() {
     }
     setASubmeter(true);
     try {
-      await api.post('/api/v1/diario', {
+      await criarEntradaDiario({
         obraId,
         data,
         clima: clima.trim() || null,

@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import { listarObras } from '../lib/dados';
 import type { Obra } from '../lib/types';
 
 const ESTADO_COR: Record<string, string> = {
@@ -24,8 +24,6 @@ const ESTADO_TEXTO: Record<string, string> = {
   concluida: 'Concluída',
 };
 
-type Resposta = { dados?: Obra[]; meta?: { total?: number } };
-
 export default function ObrasScreen() {
   const [obras, setObras] = useState<Obra[]>([]);
   const [aCarregar, setACarregar] = useState(true);
@@ -35,8 +33,8 @@ export default function ObrasScreen() {
   const carregar = useCallback(async () => {
     try {
       setErro(null);
-      const res = await api.get<Resposta>('/api/v1/obras');
-      setObras(comoArray<Obra>(res));
+      const obras = await listarObras();
+      setObras(obras);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar obras.');
     } finally {

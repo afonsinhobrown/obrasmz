@@ -14,7 +14,11 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import {
+  listarTrabalhadores,
+  pagamentosObra,
+  registarPagamento,
+} from '../lib/dados';
 import SeletorObra from '../components/SeletorObra';
 import type { Pagamento, Trabalhador } from '../lib/types';
 
@@ -52,7 +56,7 @@ export default function PagamentosScreen() {
   const [beneficiarioTipo, setBeneficiarioTipo] = useState<'trabalhador' | 'outro'>('trabalhador');
   const [trabalhadorId, setTrabalhadorId] = useState<string | null>(null);
   const [valor, setValor] = useState('');
-  const [metodo, setMetodo] = useState<string>('numerario');
+  const [metodo, setMetodo] = useState<Pagamento['metodo']>('numerario');
   const [descricao, setDescricao] = useState('');
   const [aSubmeter, setASubmeter] = useState(false);
 
@@ -60,11 +64,11 @@ export default function PagamentosScreen() {
     try {
       setErro(null);
       const [p, t] = await Promise.all([
-        api.get(`/api/v1/pagamentos?obraId=${id}`),
-        api.get('/api/v1/equipa/trabalhadores'),
+        pagamentosObra(id),
+        listarTrabalhadores(),
       ]);
-      setPagamentos(comoArray<Pagamento>(p));
-      setTrabalhadores(comoArray<Trabalhador>(t));
+      setPagamentos(p);
+      setTrabalhadores(t);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar.');
     }
@@ -100,10 +104,11 @@ export default function PagamentosScreen() {
     }
     setASubmeter(true);
     try {
-      await api.post('/api/v1/pagamentos', {
+      await registarPagamento({
         obraId,
         beneficiarioTipo,
-        beneficiarioId: beneficiarioTipo === 'trabalhador' ? trabalhadorId : null,
+        beneficiarioId:
+          beneficiarioTipo === 'trabalhador' ? trabalhadorId : null,
         valor: v,
         metodo,
         descricao: descricao.trim() || null,

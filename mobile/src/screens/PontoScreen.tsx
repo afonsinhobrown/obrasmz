@@ -10,7 +10,12 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import {
+  listarObras,
+  listarTrabalhadores,
+  marcarPresenca,
+  presencasDia,
+} from '../lib/dados';
 import type { Obra, Presenca, Trabalhador } from '../lib/types';
 
 /** Data de hoje em ISO (YYYY-MM-DD), no fuso do dispositivo. */
@@ -36,12 +41,12 @@ export default function PontoScreen() {
     (async () => {
       try {
         const [o, t] = await Promise.all([
-          api.get('/api/v1/obras'),
-          api.get('/api/v1/equipa/trabalhadores'),
+          listarObras(),
+          listarTrabalhadores(),
         ]);
-        const obrasArr = comoArray<Obra>(o);
+        const obrasArr = o;
         setObras(obrasArr);
-        setTrabalhadores(comoArray<Trabalhador>(t));
+        setTrabalhadores(t);
         if (obrasArr.length > 0) {
           setObraId((atual) => atual ?? obrasArr[0].id);
         }
@@ -57,10 +62,8 @@ export default function PontoScreen() {
   const carregarPresencas = useCallback(
     async (idObra: string) => {
       try {
-        const res = await api.get(
-          `/api/v1/equipa/presencas?obraId=${idObra}&de=${data}&ate=${data}`,
-        );
-        setPresencas(comoArray<Presenca>(res));
+        const res = await presencasDia(idObra, data);
+        setPresencas(res);
       } catch {
         setPresencas([]);
       }
@@ -89,12 +92,7 @@ export default function PontoScreen() {
     }
     setASubmeter(t.id);
     try {
-      await api.post('/api/v1/equipa/presencas', {
-        obraId,
-        trabalhadorId: t.id,
-        data,
-        presente: true,
-      });
+      await marcarPresenca(obraId, t.id, data, true);
       await carregarPresencas(obraId);
     } catch (e) {
       Alert.alert(

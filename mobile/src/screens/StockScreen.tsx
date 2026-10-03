@@ -6,9 +6,9 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { api, comoArray } from '../lib/api';
+import { materiaisLista, movimentosStock, resumoStock } from '../lib/dados';
 import SeletorObra from '../components/SeletorObra';
-import type { Material, MovimentoStock, StockResumo } from '../lib/types';
+import type { MovimentoStock, StockResumo } from '../lib/types';
 
 const TIPO_TEXTO: Record<string, string> = {
   entrada: 'Entrada',
@@ -37,15 +37,14 @@ export default function StockScreen() {
     try {
       setErro(null);
       const [r, m, cat] = await Promise.all([
-        api.get(`/api/v1/stock/resumo?obraId=${id}`),
-        api.get(`/api/v1/stock/movimentos?obraId=${id}&limite=100`),
-        api.get('/api/v1/materiais'),
+        resumoStock(id),
+        movimentosStock(id),
+        materiaisLista(),
       ]);
-      const resumoArr = comoArray<StockResumo>(r);
-      setResumo(resumoArr[0] ?? null);
-      setMovimentos(comoArray<MovimentoStock>(m));
+      setResumo(r);
+      setMovimentos(m);
       const mapa = new Map<string, string>();
-      comoArray<Material>(cat).forEach((mt) => mapa.set(mt.id, mt.nome));
+      cat.forEach((mt) => mapa.set(mt.id, mt.nome));
       setMateriais(mapa);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao carregar.');

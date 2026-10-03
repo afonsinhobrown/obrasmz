@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../lib/auth';
+import { contagemPendentes, usarLigacao } from '../lib/sync';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -23,6 +24,24 @@ const ITENS: Item[] = [
 export default function MaisScreen() {
   const navigation = useNavigation<Nav>();
   const { perfil } = useAuth();
+  const online = usarLigacao();
+  const [pendentes, setPendentes] = useState(0);
+
+  // Estado da sincronizacao: ligacao e escritas por enviar.
+  useEffect(() => {
+    let vivo = true;
+    const actualizar = () => {
+      void contagemPendentes().then((n) => {
+        if (vivo) setPendentes(n);
+      });
+    };
+    actualizar();
+    const t = setInterval(actualizar, 10000);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, []);
 
   return (
     <ScrollView style={estilos.fundo} contentContainerStyle={estilos.container}>
@@ -32,6 +51,20 @@ export default function MaisScreen() {
           <Text style={estilos.perfilPapel}>{perfil.papel}</Text>
         </View>
       ) : null}
+
+      <View
+ style={[estilos.estado, { backgroundColor: online ? '#dcfce7' : '#fef9c3' }]}
+      >
+        <Text
+          style={[
+            estilos.estadoTexto,
+            { color: online ? '#166534' : '#854d0e' },
+          ]}
+        >
+          {online ? 'Online' : 'Offline'}
+          {pendentes > 0 ? ` · ${pendentes} por sincronizar` : ''}
+        </Text>
+      </View>
 
       <Text style={estilos.secao}>Gestão</Text>
       <View style={estilos.lista}>
@@ -65,6 +98,8 @@ const estilos = StyleSheet.create({
   },
   perfilNome: { color: '#fff', fontSize: 17, fontWeight: '700' },
   perfilPapel: { color: '#94a3b8', fontSize: 13, marginTop: 2, textTransform: 'capitalize' },
+  estado: { borderRadius: 12, padding: 12, marginBottom: 16 },
+  estadoTexto: { fontSize: 13, fontWeight: '600' },
   secao: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 8 },
   lista: { gap: 10 },
   cartao: {

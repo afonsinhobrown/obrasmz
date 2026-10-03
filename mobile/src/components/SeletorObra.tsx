@@ -5,7 +5,7 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
-import { api, comoArray } from '../lib/api';
+import { listarObras } from '../lib/dados';
 import type { Obra } from '../lib/types';
 
 type Props = {
@@ -23,11 +23,9 @@ export default function SeletorObra({ obraId, onSelect }: Props) {
 
   useEffect(() => {
     let vivo = true;
-    api
-      .get('/api/v1/obras')
-      .then((res) => {
+    listarObras()
+      .then((arr) => {
         if (!vivo) return;
-        const arr = comoArray<Obra>(res);
         setObras(arr);
         if (arr.length > 0 && !obraId) onSelect(arr[0].id);
       })

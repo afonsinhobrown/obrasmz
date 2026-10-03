@@ -80,3 +80,114 @@ export type Perfil = {
   nome: string;
   email: string | null;
 };
+
+/** Item do orçamento de uma obra. */
+export type OrcamentoItem = {
+  id: string;
+  tenantId: string;
+  obraId: string;
+  capitulo: string | null;
+  descricao: string;
+  unidade: string | null;
+  quantidade: string;
+  precoUnitario: string;
+  totalOrcado: string;
+  qtdExecutada: string;
+  ordem: number;
+  clientId: string | null;
+  criadoEm: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+/** Custo lançado numa obra. */
+export type Custo = {
+  id: string;
+  tenantId: string;
+  obraId: string;
+  orcamentoItemId: string | null;
+  tipo: 'material' | 'mao_de_obra' | 'subempreitada' | 'equipamento' | 'outro';
+  descricao: string;
+  valor: string;
+  moeda: string;
+  taxaCambio: string;
+  data: string;
+  origemTabela: string | null;
+  origemId: string | null;
+  clientId: string | null;
+  criadoEm: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+/** Movimento de stock. */
+export type MovimentoStock = {
+  id: string;
+  tenantId: string;
+  obraId: string;
+  materialId: string;
+  materialNome?: string;
+  tipo: 'entrada' | 'saida' | 'ajuste' | 'transferencia';
+  quantidade: string;
+  precoUnitario: string | null;
+  fornecedorId: string | null;
+  requisicaoId: string | null;
+  utilizadorId: string;
+  transferenciaParaObraId: string | null;
+  observacoes: string | null;
+  data: string;
+  clientId: string | null;
+  criadoEm: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+/** Resumo de stock (agregado por obra). */
+export type StockResumo = {
+  obraId: string;
+  obraCodigo: string | null;
+  obraNome: string | null;
+  materiais: number;
+  valor: number;
+};
+
+/** Material do catálogo. */
+export type Material = {
+  id: string;
+  tenantId: string;
+  nome: string;
+  unidade: string;
+  categoria: string | null;
+  stockMinimo: string;
+  precoRef: string | null;
+  clientId: string | null;
+  criadoEm: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+/** Pagamento registado. */
+export type Pagamento = {
+  id: string;
+  tenantId: string;
+  obraId: string;
+  beneficiarioTipo: 'trabalhador' | 'subempreiteiro' | 'fornecedor' | 'outro';
+  beneficiarioId: string | null;
+  contratoId: string | null;
+  folhaId: string | null;
+  descricao: string | null;
+  valor: string;
+  moeda: string;
+  taxaCambio: string;
+  metodo: 'numerario' | 'mpesa' | 'emola' | 'transferencia' | 'cheque';
+  referencia: string | null;
+  comprovativoUrl: string | null;
+  estado: 'registado' | 'confirmado' | 'anulado';
+  anuladoMotivo: string | null;
+  pagoEm: string;
+  registadoPor: string;
+  clientId: string | null;
+  criadoEm: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
